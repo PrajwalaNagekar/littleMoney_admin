@@ -6,6 +6,7 @@ const router = express.Router();
 import dotenv from 'dotenv'
 import cors from 'cors';
 import connectToDb from './src/database/index.js';
+import { seedAdminUsers } from './src/controllers/seedAdmin.js';
 dotenv.config();
 const PORT = process.env.PORT;
 
@@ -17,6 +18,7 @@ app.use("/api", AdminRoutes);
 const startServer = async () => {
     try {
         await connectToDb()
+        await seedAdminUsers();
         app.listen(PORT, () => {
             console.log(`server running on ${PORT}`);
         })
