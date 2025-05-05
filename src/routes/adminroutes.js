@@ -1,6 +1,6 @@
 import express from "express";
 import { emailVerify, verifyOtp } from '../controllers/AuthController.js'
-import { getAllDetails, getOffersApi, getSummaryApi } from '../controllers/admin/admin.controller.js'
+import { getAllDetails, getOffersApi, getSummaryApi, getFilteredData } from '../controllers/admin/admin.controller.js'
 const router = express.Router();
 
 router.post('/email-verification', emailVerify)
@@ -11,6 +11,7 @@ router.get('/all-details', getAllDetails)
 //   });
 router.get('/all-offers/:leadId', getOffersApi)
 router.get('/get-summary/:leadId', getSummaryApi)
+router.get('/get-filtered-data', getFilteredData)
 
 
 

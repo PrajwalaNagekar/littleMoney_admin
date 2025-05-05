@@ -5,16 +5,44 @@ import offerSummaryModal from "../../models/offerSummary.modal.js";
 
 export const getAllDetails = async (req, res) => {
   try {
-    const details = await allDetailsModel.find()
-      .populate('personalLoanRef')  // Populating personal loan details
-      .populate('businessLoanRef')  // Populating business loan details
-      .populate('appliedCustomerRef')  // Populating applied customer details
-      .populate('registerRef')  // Populating register details
-      .populate('loginCountRef')  // Populating login count details
-      .exec();
-    console.log("🚀 ~ getAllDetails ~ details:", details)
+    const { search = '' } = req.query;
 
-    if (!details) {
+    // Prepare RegExp for case-insensitive partial match
+    const searchRegex = new RegExp(search, 'i');
+
+    // Step 1: Get all details with population
+    let details = await allDetailsModel.find()
+      .populate('personalLoanRef')
+      .populate('businessLoanRef')
+      .populate('appliedCustomerRef')
+      .populate('registerRef')
+      .populate('loginCountRef')
+      .exec();
+
+    // Step 2: Filter in-memory after population (since you can't query nested populated fields directly)
+    if (search) {
+      details = details.filter((item) => {
+        const leadIdMatch = item.leadId?.toLowerCase().includes(search.toLowerCase());
+        const mobileMatch = item.mobileNumber?.toLowerCase().includes(search.toLowerCase());
+
+        const personalFirst = item.personalLoanRef?.firstName?.toLowerCase().includes(search.toLowerCase());
+        const personalLast = item.personalLoanRef?.lastName?.toLowerCase().includes(search.toLowerCase());
+
+        const businessFirst = item.businessLoanRef?.firstName?.toLowerCase().includes(search.toLowerCase());
+        const businessLast = item.businessLoanRef?.lastName?.toLowerCase().includes(search.toLowerCase());
+
+        return (
+          leadIdMatch ||
+          mobileMatch ||
+          personalFirst ||
+          personalLast ||
+          businessFirst ||
+          businessLast
+        );
+      });
+    }
+
+    if (!details || details.length === 0) {
       return res.status(404).json({ success: false, message: 'No details found' });
     }
 
@@ -110,3 +138,67 @@ export const getSummaryApi = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to fetch and save summary' });
   }
 }
+
+//fliter based on created at and updated at(pl and bl)
+export const getFilteredData = async (req, res) => {
+  try {
+    const { from, to, type = 'created' } = req.query;
+
+    const fromDate = from ? new Date(from) : null;
+    const toDate = to ? new Date(to) : null;
+
+    if (toDate) {
+      toDate.setHours(23, 59, 59, 999); // Extend to end of day
+    }
+
+    const dateField = type === 'updated' ? 'updatedAt' : 'createdAt';
+
+    console.log('📅 Date Filter:', { fromDate, toDate, type });
+
+    const pipeline = [
+      {
+        $lookup: {
+          from: 'personalloans',
+          localField: 'personalLoanRef',
+          foreignField: '_id',
+          as: 'personalLoan',
+        },
+      },
+      { $unwind: '$personalLoan' },
+      {
+        $lookup: {
+          from: 'businessloans',
+          localField: 'businessLoanRef',
+          foreignField: '_id',
+          as: 'businessLoan',
+        },
+      },
+      { $unwind: '$businessLoan' },
+    ];
+
+    if (fromDate && toDate) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { [`personalLoan.${dateField}`]: { $gte: fromDate, $lte: toDate } },
+            { [`businessLoan.${dateField}`]: { $gte: fromDate, $lte: toDate } },
+          ],
+        },
+      });
+    }
+
+    const result = await allDetailsModel.aggregate(pipeline);
+    console.log('✅ Aggregated Records:', result.length);
+
+    if (!result || result.length === 0) {
+      return res.status(404).json({ success: false, message: 'No details found' });
+    }
+
+    res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    console.error('❌ Error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+
