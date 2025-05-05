@@ -77,6 +77,7 @@ export const emailVerify = async (req, res) => {
         return res.json({
             message: 'OTP sent to registered mobile number',
             phoneHint,
+            phoneNumber:user.phoneNumber,
             email: user.email,
         });
 
@@ -89,7 +90,7 @@ export const emailVerify = async (req, res) => {
 
 export const verifyOtp = async (req, res) => {
     const schema = Joi.object({
-        mobileNumber: Joi.string().required(),
+        mobileNumber: Joi.string(),
         otp: Joi.string().required(),
     });
 
@@ -110,8 +111,8 @@ export const verifyOtp = async (req, res) => {
         const expiryTime = new Date(record.otpExpiry).getTime();
         const currentTime = Date.now();
 
-        console.log("✅ OTP Expiry Time:", expiryTime);
-        console.log("🕒 Current Time:", currentTime);
+        console.log(" OTP Expiry Time:", expiryTime);
+        console.log(" Current Time:", currentTime);
 
         if (currentTime > expiryTime) {
             return res.status(400).json({ message: 'OTP has expired. Please request a new one.' });
