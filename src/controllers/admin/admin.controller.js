@@ -5,42 +5,27 @@ import offerSummaryModal from "../../models/offerSummary.modal.js";
 
 export const getAllDetails = async (req, res) => {
   try {
-    const { search = '' } = req.query;
+    const { search = '', loanType = '' } = req.query;
 
-    // Prepare RegExp for case-insensitive partial match
-    const searchRegex = new RegExp(search, 'i');
+    const query = {};
 
-    // Step 1: Get all details with population
-    let details = await allDetailsModel.find()
+    if (search) {
+      query.leadId = { $regex: search, $options: 'i' };
+    }
+
+    if (loanType === 'Personal Loan') {
+      query.personalLoanRef = { $ne: null };
+    } else if (loanType === 'Business Loan') {
+      query.businessLoanRef = { $ne: null };
+    }
+
+    const details = await allDetailsModel.find(query)
       .populate('personalLoanRef')
       .populate('businessLoanRef')
       .populate('appliedCustomerRef')
       .populate('registerRef')
       .populate('loginCountRef')
       .exec();
-
-    // Step 2: Filter in-memory after population (since you can't query nested populated fields directly)
-    if (search) {
-      details = details.filter((item) => {
-        const leadIdMatch = item.leadId?.toLowerCase().includes(search.toLowerCase());
-        const mobileMatch = item.mobileNumber?.toLowerCase().includes(search.toLowerCase());
-
-        const personalFirst = item.personalLoanRef?.firstName?.toLowerCase().includes(search.toLowerCase());
-        const personalLast = item.personalLoanRef?.lastName?.toLowerCase().includes(search.toLowerCase());
-
-        const businessFirst = item.businessLoanRef?.firstName?.toLowerCase().includes(search.toLowerCase());
-        const businessLast = item.businessLoanRef?.lastName?.toLowerCase().includes(search.toLowerCase());
-
-        return (
-          leadIdMatch ||
-          mobileMatch ||
-          personalFirst ||
-          personalLast ||
-          businessFirst ||
-          businessLast
-        );
-      });
-    }
 
     if (!details || details.length === 0) {
       return res.status(404).json({ success: false, message: 'No details found' });
@@ -55,6 +40,9 @@ export const getAllDetails = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+
+
 
 export const getOffersApi = async (req, res) => {
   const { leadId } = req.params;
